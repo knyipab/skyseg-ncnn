@@ -1,0 +1,95 @@
+#include <stdlib.h>
+#include "ncnn/benchmark.h"
+#include "ncnn/datareader.h"
+#include "ncnn/net.h"
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+#include <iostream>
+#include <chrono>
+#include <ctime>
+#include <filesystem>
+using namespace std;
+
+ncnn::Net skynet;
+
+void load_u2netp(bool use_vulkan_compute) {
+    skynet.opt.use_vulkan_compute = use_vulkan_compute;
+    char* sys_proc_exe = realpath("/proc/self/exe", NULL);
+    std::filesystem::path exe_path = sys_proc_exe;
+    std::filesystem::path param = exe_path.parent_path() / "../etc/skyseg-ncnn/skysegsmall_sim-opt-fp16.param";
+    std::filesystem::path model = exe_path.parent_path() / "../etc/skyseg-ncnn/skysegsmall_sim-opt-fp16.bin";
+    skynet.load_param(param.c_str());
+    skynet.load_model(model.c_str());
+    free(sys_proc_exe);
+}
+
+int inference_u2netp(const char* input, const char* output)
+{
+    cv::Mat bgr = cv::imread(input, 1);
+    cv::Mat dst = bgr.clone();
+    while (dst.rows > 768 && dst.cols >768 ) {
+        pyrDown(dst, dst, cv::Size(dst.cols / 2, dst.rows / 2));
+    }
+    int w = bgr.cols;
+    int h = bgr.rows;
+    ncnn::Mat in = ncnn::Mat::from_pixels_resize(dst.data, ncnn::Mat::PIXEL_BGR2RGB, dst.cols, dst.rows, 384, 384);
+    const float mean_vals[3] =  {0.485f*255.f, 0.456f*255.f, 0.406f*255.f};
+    const float norm_vals[3] = {1/0.229f/255.f, 1/0.224f/255.f, 1/0.225f/255.f};
+    in.substract_mean_normalize(mean_vals, norm_vals);
+    ncnn::Extractor ex = skynet.create_extractor();
+    ex.set_light_mode(true);
+    ex.set_num_threads(4);
+    ex.input("input.1", in);
+    ncnn::Mat out;
+    ex.extract("1959", out);
+    cv::Mat opencv_mask(out.h, out.w, CV_32FC1);
+    memcpy((uchar*)opencv_mask.data, out.data, out.w * out.h * sizeof(float));
+    cv::resize(opencv_mask,opencv_mask,cv::Size(w,h),cv::INTER_LINEAR);
+    cv::imwrite(output, 255*opencv_mask);
+
+    return 0;
+}
+
+int main(int argc, char** argv)
+{
+    if (argc == 2 && (!strcmp("-h", argv[1]) || !strcmp("--help", argv[1]))) {
+        std::cout << R"(
+Apply sky segmentation ncnn model on input image(s) and output mask image(s). 
+Adapted from https://github.com/xiongzhu666/Sky-Segmentation-and-Post-processing by Ronald Y
+
+Usage: )" << argv[0] << R"( [input] [output]
+
+Arguments: 
+    input       input file or folder
+    output      output file or folder
+)";
+        std::cout << std::endl;
+        return 0;
+    }
+    if (argc != 3) {
+        std::cerr << "Incorrect number of arguments. " << std::endl;
+        return 1;
+    }
+    const char* input = argv[1];
+    const char* output = argv[2];
+    bool use_vulkan_compute = true;
+    load_u2netp(use_vulkan_compute);
+    if (std::filesystem::is_directory(input)) {
+        if (std::filesystem::is_directory(output) || !std::filesystem::exists(output)) {
+            std::filesystem::create_directories(output);
+            for (const auto & entry : std::filesystem::directory_iterator(input)) {
+                inference_u2netp(entry.path().string().c_str(), (std::filesystem::path(output) / entry.path().filename()).string().c_str());
+            }
+        } else {
+            std::cerr << "output is not a directory (or not exist), when input is a directory" << std::endl;
+            return 1;
+        }
+    } else if (std::filesystem::exists(input)) {
+        inference_u2netp(input, output);
+    } else {
+        std::cerr << "input does not exist" << std::endl;
+        return 1;
+    }
+    return 0;
+}
