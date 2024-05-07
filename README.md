@@ -1,7 +1,7 @@
 # skyseg-ncnn
-* cmake version of xiongzhu666/Sky-Segmentation-and-Post-processing
-* supports Linux only
-* made for Termux TUR pacakge
+* cmake build of [xiongzhu666/Sky-Segmentation-and-Post-processing](https://github.com/xiongzhu666/Sky-Segmentation-and-Post-processing)
+* packaged as `skyseg-ncnn` on TUR
+* this repo exists only because the original repo by xiongzhu666 does not provide a proper build script
 
 ## Description
 ```
@@ -21,6 +21,8 @@ Arguments:
 
 ## Build
 ```bash
+mkdir build
+cd build
 cmake .. && cmake --build .
 cmake --install .
 # cmake --install . --prefix="<location-to-install>"
