@@ -23,7 +23,7 @@ Arguments:
 ```bash
 mkdir build
 cd build
-cmake .. && cmake --build .
+cmake -DCMAKE_INSTALL_PREFIX=<path-to-prefix> ..
+cmake --build .
 cmake --install .
-# cmake --install . --prefix="<location-to-install>"
 ```

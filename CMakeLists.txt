@@ -2,7 +2,9 @@ cmake_minimum_required(VERSION 3.10)
 
 project(skyseg-ncnn)
 
-add_executable(skyseg-ncnn skyseg-ncnn.cpp)
+configure_file(skyseg-ncnn.cpp.in skyseg-ncnn.cpp)
+
+add_executable(skyseg-ncnn ${PROJECT_BINARY_DIR}/skyseg-ncnn.cpp)
 
 find_package( OpenCV REQUIRED )
 find_package( ncnn REQUIRED )

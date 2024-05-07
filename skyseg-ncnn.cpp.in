@@ -15,13 +15,9 @@ ncnn::Net skynet;
 
 void load_u2netp(bool use_vulkan_compute) {
     skynet.opt.use_vulkan_compute = use_vulkan_compute;
-    char* sys_proc_exe = realpath("/proc/self/exe", NULL);
-    std::filesystem::path exe_path = sys_proc_exe;
-    std::filesystem::path param = exe_path.parent_path() / "../etc/skyseg-ncnn/skysegsmall_sim-opt-fp16.param";
-    std::filesystem::path model = exe_path.parent_path() / "../etc/skyseg-ncnn/skysegsmall_sim-opt-fp16.bin";
-    skynet.load_param(param.c_str());
-    skynet.load_model(model.c_str());
-    free(sys_proc_exe);
+    skynet.load_param("@CMAKE_INSTALL_PREFIX@/etc/skyseg-ncnn/skysegsmall_sim-opt-fp16.param");
+    skynet.load_model("@CMAKE_INSTALL_PREFIX@/etc/skyseg-ncnn/skysegsmall_sim-opt-fp16.bin");
+    skynet.opt.use_vulkan_compute = use_vulkan_compute;
 }
 
 int inference_u2netp(const char* input, const char* output)
